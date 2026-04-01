@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lama Abdalla — Portfolio</title>
+<style>
+  :root {
+    --cream:      #F2EDE4;
+    --blue:       #2B2BFF;
+    --near-black: #1C1C1C;
+    --terracotta: #C4714A;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--near-black);
+    font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  /* Subtle grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.35;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    z-index: 50;
+  }
+
+  #topbar .wordmark {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--cream);
+    opacity: 0.5;
+    text-transform: uppercase;
+  }
+
+  #topbar .page-indicator {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--cream);
+    opacity: 0.4;
+  }
+
+  /* ── BOOK STAGE ── */
+  #stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  #book-container {
+    position: relative;
+    /* sized by JS based on viewport */
+  }
+
+  /* Each spread = two pages side by side */
+  .spread {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0s;
+  }
+
+  .spread.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Cover and thank-you are single pages, centred */
+  .spread.single {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .spread.single .page {
+    width: auto;
+    height: 100%;
+    aspect-ratio: 1.414 / 1;
+    flex-shrink: 0;
+  }
+
+  .page {
+    width: 50%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .page img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Page shadow between left and right */
+  .page.left::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 18px; height: 100%;
+    background: linear-gradient(to right, transparent, rgba(0,0,0,0.18));
+    pointer-events: none;
+  }
+
+  .page.right::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 18px; height: 100%;
+    background: linear-gradient(to left, transparent, rgba(0,0,0,0.12));
+    pointer-events: none;
+  }
+
+  /* Book shadow */
+  #book-container::after {
+    content: '';
+    position: absolute;
+    bottom: -24px;
+    left: 5%;
+    right: 5%;
+    height: 24px;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Spine line */
+  #spine {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.3) 20%, rgba(0,0,0,0.3) 80%, transparent);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* ── PAGE TURN ANIMATION ── */
+  @keyframes turnLeft {
+    0%   { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+    100% { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+  }
+  @keyframes turnRight {
+    0%   { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }
+    100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+  }
+
+  .spread.turning-out {
+    opacity: 1;
+    pointer-events: none;
+  }
+  .spread.turning-out .page.right {
+    animation: turnLeft 0.38s cubic-bezier(0.4,0,0.2,1) forwards;
+  }
+  .spread.turning-in-next {
+    opacity: 1;
+    pointer-events: none;
+  }
+  .spread.turning-in-next .page.left {
+    animation: turnRight 0.38s cubic-bezier(0.4,0,0.2,1) forwards;
+  }
+
+  /* ── NAV ARROWS ── */
+  .nav-btn {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+    z-index: 50;
+  }
+  .nav-btn:hover { opacity: 0.9; }
+  .nav-btn svg { width: 22px; height: 22px; }
+  #btn-prev { left: 16px; }
+  #btn-next { right: 16px; }
+
+  /* ── PROGRESS BAR ── */
+  #progress-bar {
+    position: fixed;
+    bottom: 0; left: 0;
+    height: 2px;
+    background: var(--blue);
+    transition: width 0.35s ease;
+    z-index: 50;
+  }
+
+  /* ── THUMBNAIL STRIP ── */
+  #thumb-toggle {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--cream);
+    opacity: 0.3;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: opacity 0.2s;
+    z-index: 50;
+  }
+  #thumb-toggle:hover { opacity: 0.7; }
+
+  #thumb-strip {
+    position: fixed;
+    bottom: -120px;
+    left: 0; right: 0;
+    height: 100px;
+    background: rgba(28,28,28,0.95);
+    border-top: 1px solid rgba(242,237,228,0.08);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 24px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    transition: bottom 0.3s ease;
+    z-index: 60;
+  }
+  #thumb-strip.open { bottom: 0; }
+  #thumb-strip::-webkit-scrollbar { display: none; }
+
+  .thumb {
+    flex-shrink: 0;
+    height: 76px;
+    aspect-ratio: 1.414;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: border-color 0.15s, opacity 0.15s;
+    opacity: 0.5;
+    overflow: hidden;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb:hover { opacity: 0.85; }
+  .thumb.active { border-color: var(--blue); opacity: 1; }
+
+  /* ── FULLSCREEN BTN ── */
+  #btn-fullscreen {
+    position: fixed;
+    bottom: 14px;
+    right: 24px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.25;
+    transition: opacity 0.2s;
+    z-index: 50;
+  }
+  #btn-fullscreen:hover { opacity: 0.7; }
+  #btn-fullscreen svg { width: 16px; height: 16px; fill: var(--cream); }
+
+  /* ── LOADING SCREEN ── */
+  #loader {
+    position: fixed;
+    inset: 0;
+    background: var(--near-black);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 200;
+    transition: opacity 0.6s ease;
+  }
+  #loader.hidden { opacity: 0; pointer-events: none; }
+  #loader .loader-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--cream);
+    opacity: 0.5;
+    text-transform: uppercase;
+  }
+  #loader .loader-bar-wrap {
+    width: 160px;
+    height: 1px;
+    background: rgba(242,237,228,0.12);
+  }
+  #loader .loader-bar {
+    height: 100%;
+    background: var(--blue);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  /* Google Fonts */
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&family=Space+Mono&display=swap');
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loader">
+  <div class="loader-name">Lama Abdalla — Portfolio</div>
+  <div class="loader-bar-wrap"><div class="loader-bar" id="loader-bar"></div></div>
+</div>
+
+<!-- Top bar -->
+<div id="topbar">
+  <span class="wordmark">Lama Abdalla</span>
+  <span class="page-indicator" id="page-indicator">— / —</span>
+</div>
+
+<!-- Main stage -->
+<div id="stage">
+  <div id="book-container">
+    <div id="spine"></div>
+    <!-- Spreads injected by JS -->
+  </div>
+</div>
+
+<!-- Nav arrows -->
+<button class="nav-btn" id="btn-prev" aria-label="Previous">
+  <svg viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="15 18 9 12 15 6"/>
+  </svg>
+</button>
+<button class="nav-btn" id="btn-next" aria-label="Next">
+  <svg viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="9 18 15 12 9 6"/>
+  </svg>
+</button>
+
+<!-- Progress bar -->
+<div id="progress-bar"></div>
+
+<!-- Thumbnail toggle -->
+<button id="thumb-toggle">pages</button>
+
+<!-- Thumbnail strip -->
+<div id="thumb-strip"></div>
+
+<!-- Fullscreen -->
+<button id="btn-fullscreen" aria-label="Fullscreen">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 4h-4v2h6v-6h-2v4z"/>
+  </svg>
+</button>
+
+<script>
+// ─────────────────────────────────────────────
+// CONFIGURATION — edit image filenames here
+// ─────────────────────────────────────────────
+// Place all images in the same folder as this HTML file.
+// Naming convention used below: cover.jpg, spread-01.jpg ... spread-34.jpg, thankyou.jpg
+// Change filenames to match your actual exports from InDesign.
+
+const PAGES = [
+  { type: 'single', src: 'cover.jpg',      label: 'Cover' },
+  { type: 'spread', left: 'spread-01L.jpg', right: 'spread-01R.jpg', label: '01' },
+  { type: 'spread', left: 'spread-02L.jpg', right: 'spread-02R.jpg', label: '02' },
+  { type: 'spread', left: 'spread-03L.jpg', right: 'spread-03R.jpg', label: '03' },
+  { type: 'spread', left: 'spread-04L.jpg', right: 'spread-04R.jpg', label: '04' },
+  { type: 'spread', left: 'spread-05L.jpg', right: 'spread-05R.jpg', label: '05' },
+  { type: 'spread', left: 'spread-06L.jpg', right: 'spread-06R.jpg', label: '06' },
+  { type: 'spread', left: 'spread-07L.jpg', right: 'spread-07R.jpg', label: '07' },
+  { type: 'spread', left: 'spread-08L.jpg', right: 'spread-08R.jpg', label: '08' },
+  { type: 'spread', left: 'spread-09L.jpg', right: 'spread-09R.jpg', label: '09' },
+  { type: 'spread', left: 'spread-10L.jpg', right: 'spread-10R.jpg', label: '10' },
+  { type: 'spread', left: 'spread-11L.jpg', right: 'spread-11R.jpg', label: '11' },
+  { type: 'spread', left: 'spread-12L.jpg', right: 'spread-12R.jpg', label: '12' },
+  { type: 'spread', left: 'spread-13L.jpg', right: 'spread-13R.jpg', label: '13' },
+  { type: 'spread', left: 'spread-14L.jpg', right: 'spread-14R.jpg', label: '14' },
+  { type: 'spread', left: 'spread-15L.jpg', right: 'spread-15R.jpg', label: '15' },
+  { type: 'spread', left: 'spread-16L.jpg', right: 'spread-16R.jpg', label: '16' },
+  { type: 'spread', left: 'spread-17L.jpg', right: 'spread-17R.jpg', label: '17' },
+  { type: 'spread', left: 'spread-18L.jpg', right: 'spread-18R.jpg', label: '18' },
+  { type: 'spread', left: 'spread-19L.jpg', right: 'spread-19R.jpg', label: '19' },
+  { type: 'spread', left: 'spread-20L.jpg', right: 'spread-20R.jpg', label: '20' },
+  { type: 'spread', left: 'spread-21L.jpg', right: 'spread-21R.jpg', label: '21' },
+  { type: 'spread', left: 'spread-22L.jpg', right: 'spread-22R.jpg', label: '22' },
+  { type: 'spread', left: 'spread-23L.jpg', right: 'spread-23R.jpg', label: '23' },
+  { type: 'spread', left: 'spread-24L.jpg', right: 'spread-24R.jpg', label: '24' },
+  { type: 'spread', left: 'spread-25L.jpg', right: 'spread-25R.jpg', label: '25' },
+  { type: 'spread', left: 'spread-26L.jpg', right: 'spread-26R.jpg', label: '26' },
+  { type: 'spread', left: 'spread-27L.jpg', right: 'spread-27R.jpg', label: '27' },
+  { type: 'spread', left: 'spread-28L.jpg', right: 'spread-28R.jpg', label: '28' },
+  { type: 'spread', left: 'spread-29L.jpg', right: 'spread-29R.jpg', label: '29' },
+  { type: 'spread', left: 'spread-30L.jpg', right: 'spread-30R.jpg', label: '30' },
+  { type: 'spread', left: 'spread-31L.jpg', right: 'spread-31R.jpg', label: '31' },
+  { type: 'spread', left: 'spread-32L.jpg', right: 'spread-32R.jpg', label: '32' },
+  { type: 'spread', left: 'spread-33L.jpg', right: 'spread-33R.jpg', label: '33' },
+  { type: 'spread', left: 'spread-34L.jpg', right: 'spread-34R.jpg', label: '34' },
+  { type: 'single', src: 'thankyou.jpg',   label: 'End' },
+];
+
+// ─────────────────────────────────────────────
+// BUILD DOM
+// ─────────────────────────────────────────────
+const container  = document.getElementById('book-container');
+const thumbStrip = document.getElementById('thumb-strip');
+const indicator  = document.getElementById('page-indicator');
+const progressEl = document.getElementById('progress-bar');
+const loaderBar  = document.getElementById('loader-bar');
+const loader     = document.getElementById('loader');
+
+// Size the book to fill viewport nicely (landscape A4 ratio = 1.414 wide per page)
+function sizeBook() {
+  const vw = window.innerWidth  - 96;  // leave room for arrows
+  const vh = window.innerHeight - 80;  // leave room for bars
+  // spread ratio: 2 pages wide × A4 landscape = 2 × 1.414 : 1 = 2.828 : 1
+  let w = vw, h = vw / 2.828;
+  if (h > vh) { h = vh; w = vh * 2.828; }
+  container.style.width  = w + 'px';
+  container.style.height = h + 'px';
+}
+sizeBook();
+window.addEventListener('resize', sizeBook);
+
+// Build spreads + thumbs
+const spreadEls = [];
+PAGES.forEach((p, i) => {
+  // Spread element
+  const div = document.createElement('div');
+  div.className = 'spread' + (p.type === 'single' ? ' single' : '');
+  div.dataset.index = i;
+
+  if (p.type === 'single') {
+    const pg = document.createElement('div');
+    pg.className = 'page';
+    const img = document.createElement('img');
+    img.src = p.src; img.alt = p.label;
+    img.loading = i === 0 ? 'eager' : 'lazy';
+    pg.appendChild(img); div.appendChild(pg);
+  } else {
+    ['left', 'right'].forEach(side => {
+      const pg = document.createElement('div');
+      pg.className = 'page ' + side;
+      const img = document.createElement('img');
+      img.src = p[side]; img.alt = p.label + ' ' + side;
+      img.loading = i <= 1 ? 'eager' : 'lazy';
+      pg.appendChild(img); div.appendChild(pg);
+    });
+  }
+  container.appendChild(div);
+  spreadEls.push(div);
+
+  // Thumbnail
+  const thumb = document.createElement('div');
+  thumb.className = 'thumb';
+  thumb.dataset.index = i;
+  const tImg = document.createElement('img');
+  tImg.src = p.type === 'single' ? p.src : p.left;
+  tImg.alt = p.label;
+  tImg.loading = 'lazy';
+  thumb.appendChild(tImg);
+  thumb.addEventListener('click', () => goTo(i));
+  thumbStrip.appendChild(thumb);
+});
+
+// ─────────────────────────────────────────────
+// NAVIGATION STATE
+// ─────────────────────────────────────────────
+let current = 0;
+let animating = false;
+
+function updateSpine() {
+  const spine = document.getElementById('spine');
+  spine.style.display = PAGES[current].type === 'single' ? 'none' : 'block';
+}
+
+function updateUI() {
+  indicator.textContent = (current + 1) + ' / ' + PAGES.length;
+  progressEl.style.width = ((current / (PAGES.length - 1)) * 100) + '%';
+  document.querySelectorAll('.thumb').forEach((t, i) => {
+    t.classList.toggle('active', i === current);
+  });
+  // Scroll active thumb into view
+  const activeThumb = thumbStrip.children[current];
+  if (activeThumb) activeThumb.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  updateSpine();
+}
+
+function goTo(index, direction) {
+  if (animating || index === current || index < 0 || index >= PAGES.length) return;
+  animating = true;
+
+  const outEl = spreadEls[current];
+  const inEl  = spreadEls[index];
+  const dir   = direction || (index > current ? 'next' : 'prev');
+
+  // Simple fade for single pages, clip animation for spreads
+  const useFade = PAGES[current].type === 'single' || PAGES[index].type === 'single';
+
+  if (useFade) {
+    outEl.style.transition = 'opacity 0.3s ease';
+    outEl.style.opacity = '0';
+    setTimeout(() => {
+      outEl.classList.remove('active');
+      outEl.style.transition = '';
+      outEl.style.opacity = '';
+      inEl.classList.add('active');
+      inEl.style.opacity = '0';
+      inEl.style.transition = 'opacity 0.3s ease';
+      requestAnimationFrame(() => { inEl.style.opacity = '1'; });
+      setTimeout(() => {
+        inEl.style.transition = '';
+        inEl.style.opacity = '';
+        current = index;
+        updateUI();
+        animating = false;
+      }, 320);
+    }, 300);
+  } else {
+    // Clip-path page turn
+    outEl.classList.remove('active');
+    outEl.classList.add(dir === 'next' ? 'turning-out' : 'turning-in-next');
+    inEl.classList.add(dir === 'next' ? 'turning-in-next' : 'turning-out');
+
+    setTimeout(() => {
+      outEl.classList.remove('turning-out', 'turning-in-next');
+      inEl.classList.remove('turning-out', 'turning-in-next');
+      inEl.classList.add('active');
+      // Reset any clip-path from animation
+      inEl.querySelectorAll('.page').forEach(p => p.style.clipPath = '');
+      current = index;
+      updateUI();
+      animating = false;
+    }, 400);
+  }
+}
+
+function next() { goTo(current + 1, 'next'); }
+function prev() { goTo(current - 1, 'prev'); }
+
+// Init first spread
+spreadEls[0].classList.add('active');
+updateUI();
+
+// ─────────────────────────────────────────────
+// CONTROLS
+// ─────────────────────────────────────────────
+document.getElementById('btn-next').addEventListener('click', next);
+document.getElementById('btn-prev').addEventListener('click', prev);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next();
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   prev();
+});
+
+// Touch swipe
+let touchX = 0;
+document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 40) { dx < 0 ? next() : prev(); }
+}, { passive: true });
+
+// Click left/right half of book
+container.addEventListener('click', e => {
+  const half = container.getBoundingClientRect().width / 2;
+  const x = e.clientX - container.getBoundingClientRect().left;
+  x > half ? next() : prev();
+});
+
+// Thumbnail strip toggle
+document.getElementById('thumb-toggle').addEventListener('click', () => {
+  thumbStrip.classList.toggle('open');
+});
+
+// Fullscreen
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+});
+
+// ─────────────────────────────────────────────
+// LOADER — simulate progress then hide
+// ─────────────────────────────────────────────
+let prog = 0;
+const loadInterval = setInterval(() => {
+  prog += Math.random() * 18;
+  if (prog >= 100) { prog = 100; clearInterval(loadInterval); }
+  loaderBar.style.width = prog + '%';
+  if (prog === 100) {
+    setTimeout(() => { loader.classList.add('hidden'); }, 400);
+  }
+}, 120);
+</script>
+</body>
+</html>
